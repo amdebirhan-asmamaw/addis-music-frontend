@@ -8,8 +8,7 @@ import css from "@styled-system/css";
 
 import AppHeader from "./components/Header";
 import AppPlayer from "./components/Player";
-import { useSongPlayer } from "./hooks/useSongPlayer";
-import { INITIAL_SONGS } from "./constants/songs";
+import PlayerAudio from "./components/PlayerAudio";
 import { colors } from "./constants/theme";
 
 // ─── Styled Components ──────────────────────────────────────────────
@@ -50,9 +49,12 @@ const globalStyles = globalCss`
 
 // ─── App Layout ─────────────────────────────────────────────────────
 
+export interface AppOutletContext {
+  searchQuery: string;
+}
+
 export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
-  const player = useSongPlayer(INITIAL_SONGS[0]);
 
   return (
     <AppContainer>
@@ -64,16 +66,11 @@ export default function App() {
       />
 
       <Main>
-        <Outlet context={{ searchQuery, player }} />
+        <Outlet context={{ searchQuery } satisfies AppOutletContext} />
       </Main>
 
-      {player.nowPlaying && (
-        <AppPlayer
-          nowPlaying={player.nowPlaying}
-          isPlaying={player.isPlaying}
-          setIsPlaying={player.setIsPlaying}
-        />
-      )}
+      <PlayerAudio />
+      <AppPlayer />
     </AppContainer>
   );
 }

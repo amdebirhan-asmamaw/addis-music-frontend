@@ -53,6 +53,7 @@ export function useSongs(
           releaseYear: song.releaseYear,
           description: song.description,
           image: song.image,
+          audioUrl: song.audioUrl ?? "",
         });
       } else {
         setEditingSong(null);

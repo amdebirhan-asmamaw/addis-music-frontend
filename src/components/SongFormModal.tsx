@@ -299,6 +299,39 @@ export default function SongFormModal({
                     marginBottom: "6px",
                   }}
                 >
+                  Audio URL
+                </label>
+                <Input
+                  type="url"
+                  hasError={!!formErrors.audioUrl}
+                  value={formData.audioUrl}
+                  onChange={(e: any) =>
+                    setFormData({ ...formData, audioUrl: e.target.value })
+                  }
+                  placeholder="https://example.com/track.mp3"
+                />
+                {formErrors.audioUrl && (
+                  <p
+                    style={{
+                      color: "#ef4444",
+                      fontSize: "12px",
+                      margin: "4px 0 0",
+                    }}
+                  >
+                    {formErrors.audioUrl}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: "#334155",
+                    marginBottom: "6px",
+                  }}
+                >
                   Description
                 </label>
                 <Input

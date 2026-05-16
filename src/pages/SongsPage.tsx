@@ -1,6 +1,6 @@
 // pages/SongsPage.tsx — Song management page
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { Search, Plus, Filter, ArrowUpDown } from "lucide-react";
 import styled from "@emotion/styled";
@@ -13,7 +13,6 @@ import { AddCard } from "../components/ui/Shared";
 
 import { useSongs } from "../hooks/useSongs";
 import { useSongFilters } from "../hooks/useSongFilters";
-import type { useSongPlayer } from "../hooks/useSongPlayer";
 
 import { INITIAL_SONGS } from "../constants/songs";
 import { GENRES } from "../constants/genres";
@@ -21,11 +20,14 @@ import { getStatusColor, getStatusDotColor } from "../constants/status";
 import { colors, fontSizes, fontWeights } from "../constants/theme";
 import type { Song } from "../types/song";
 
-// Outlet context type shared with App layout
-export interface SongsOutletContext {
-  searchQuery: string;
-  player: ReturnType<typeof useSongPlayer>;
-}
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  clearPlayback,
+  playSongById,
+  selectNowPlaying,
+  setQueue,
+} from "../store/playerSlice";
+import type { AppOutletContext } from "../App";
 
 // ─── Styled Components ──────────────────────────────────────────────
 
@@ -226,11 +228,29 @@ const AddTrackText = styled.p(
 );
 
 export default function SongsPage() {
-  const { searchQuery, player } = useOutletContext<SongsOutletContext>();
-  const crud = useSongs(INITIAL_SONGS, player.stopIfDeleted);
+  const { searchQuery } = useOutletContext<AppOutletContext>();
+  const dispatch = useAppDispatch();
+  const nowPlaying = useAppSelector(selectNowPlaying);
+  const isPlaying = useAppSelector((s) => s.player.isPlaying);
+
+  const handleSongDeleted = useCallback(
+    (deletedId: number) => {
+      if (nowPlaying?.id === deletedId) {
+        dispatch(clearPlayback());
+      }
+    },
+    [dispatch, nowPlaying?.id],
+  );
+
+  const crud = useSongs(INITIAL_SONGS, handleSongDeleted);
   const filters = useSongFilters(crud.songs, searchQuery);
 
-  // Listen for new songs created from the header form
+  // Keep the player queue in sync with the visible filtered list.
+  useEffect(() => {
+    dispatch(setQueue(filters.filteredSongs));
+  }, [dispatch, filters.filteredSongs]);
+
+  // Listen for new songs created from the header form.
   useEffect(() => {
     const handler = (e: Event) => {
       const song = (e as CustomEvent<Song>).detail;
@@ -239,6 +259,14 @@ export default function SongsPage() {
     window.addEventListener("song-created", handler);
     return () => window.removeEventListener("song-created", handler);
   }, [crud.addSong]);
+
+  const handlePlay = useCallback(
+    (song: Song) => {
+      if (!song.audioUrl) return;
+      dispatch(playSongById(song.id));
+    },
+    [dispatch],
+  );
 
   return (
     <>
@@ -307,9 +335,9 @@ export default function SongsPage() {
           <SongCard
             key={song.id}
             song={song}
-            isPlaying={player.isPlaying}
-            nowPlaying={player.nowPlaying}
-            playSong={player.playSong}
+            isPlaying={isPlaying}
+            nowPlaying={nowPlaying}
+            playSong={handlePlay}
             handleOpenForm={crud.handleOpenForm}
             confirmDelete={crud.confirmDelete}
             getStatusColor={getStatusColor}

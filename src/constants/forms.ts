@@ -12,6 +12,7 @@ export const DEFAULT_FORM_STATE: SongFormData = {
   releaseYear: new Date().getFullYear(),
   description: "",
   image: "",
+  audioUrl: "",
 };
 
 export const songFormSchema = z.object({
@@ -33,6 +34,10 @@ export const songFormSchema = z.object({
     .max(new Date().getFullYear() + 1, "Year cannot be in the far future"),
   description: z.string().max(500, "Description must be under 500 characters").optional().default(""),
   image: z.string().optional().default(""),
+  audioUrl: z
+    .union([z.url("Must be a valid URL"), z.literal("")])
+    .optional()
+    .default(""),
 });
 
 export type SongFormSchema = z.infer<typeof songFormSchema>;

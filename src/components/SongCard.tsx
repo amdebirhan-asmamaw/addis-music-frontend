@@ -152,7 +152,12 @@ export default function SongCard({
         />
         <Badge>{song.genre}</Badge>
         <PlayOverlay className="play-overlay">
-          <PlayButton onClick={() => playSong(song)}>
+          <PlayButton
+            onClick={() => playSong(song)}
+            disabled={!song.audioUrl}
+            title={song.audioUrl ? undefined : "No audio available"}
+            style={!song.audioUrl ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          >
             {isPlaying && nowPlaying?.id === song.id ? (
               <Pause size={20} fill="currentColor" />
             ) : (

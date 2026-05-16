@@ -13,6 +13,7 @@ export interface Song {
   image: string;
   releaseYear: number;
   description: string;
+  audioUrl: string;
 }
 
 export interface SongFormData {
@@ -24,12 +25,14 @@ export interface SongFormData {
   releaseYear: number;
   description: string;
   image: string;
+  audioUrl: string;
 }
 
 export interface SongFormErrors {
   title?: string;
   artist?: string;
   genre?: string;
+  audioUrl?: string;
 }
 
 export interface SongStats {
