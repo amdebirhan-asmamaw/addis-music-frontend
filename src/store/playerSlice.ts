@@ -1,6 +1,6 @@
 // store/playerSlice.ts — Global music player state
 
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createAction, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { Song } from "../types/song";
 
 export interface PlayerState {
@@ -11,7 +11,6 @@ export interface PlayerState {
   duration: number;
   volume: number;
   muted: boolean;
-  seekRequest: number | null;
 }
 
 const initialState: PlayerState = {
@@ -22,7 +21,6 @@ const initialState: PlayerState = {
   duration: 0,
   volume: 0.8,
   muted: false,
-  seekRequest: null,
 };
 
 const playerSlice = createSlice({
@@ -30,10 +28,11 @@ const playerSlice = createSlice({
   initialState,
   reducers: {
     setQueue(state, action: PayloadAction<Song[]>) {
+      const prevSong =
+        state.currentIndex >= 0 ? state.queue[state.currentIndex] : null;
       state.queue = action.payload;
-      if (state.currentIndex >= 0) {
-        const current = state.queue[state.currentIndex];
-        const idx = action.payload.findIndex((s) => s.id === current?.id);
+      if (prevSong) {
+        const idx = action.payload.findIndex((s) => s.id === prevSong.id);
         state.currentIndex = idx;
         if (idx === -1) {
           state.isPlaying = false;
@@ -74,10 +73,6 @@ const playerSlice = createSlice({
       }
     },
     previous(state) {
-      if (state.currentTime > 3 && state.currentIndex >= 0) {
-        state.seekRequest = 0;
-        return;
-      }
       if (state.currentIndex > 0) {
         state.currentIndex -= 1;
         state.isPlaying = true;
@@ -91,12 +86,6 @@ const playerSlice = createSlice({
     },
     toggleMute(state) {
       state.muted = !state.muted;
-    },
-    requestSeek(state, action: PayloadAction<number>) {
-      state.seekRequest = action.payload;
-    },
-    clearSeekRequest(state) {
-      state.seekRequest = null;
     },
     setCurrentTime(state, action: PayloadAction<number>) {
       state.currentTime = action.payload;
@@ -134,13 +123,19 @@ export const {
   previous,
   setVolume,
   toggleMute,
-  requestSeek,
-  clearSeekRequest,
   setCurrentTime,
   setDuration,
   trackEnded,
   clearPlayback,
 } = playerSlice.actions;
+
+// Fire-and-forget action — no state change; handled imperatively by the
+// listener middleware via audioEngine.seek().
+export const seekTo = createAction<number>("player/seekTo");
+
+// Signal that the audio source needs to be reloaded by the engine.
+// Dispatched when the now-playing track or its audioUrl changes.
+export const syncAudioSource = createAction("player/syncAudioSource");
 
 export default playerSlice.reducer;
 

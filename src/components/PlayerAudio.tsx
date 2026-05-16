@@ -1,119 +1,35 @@
-// components/PlayerAudio.tsx — Headless <audio> + Web Audio engine driven by Redux
+// components/PlayerAudio.tsx — Mounts the singleton <audio> element
+//
+// Side effects (play/pause/seek/volume/src) are driven by the listener
+// middleware in store/playerListeners.ts via audioEngine. This component
+// only owns:
+//   1. The <audio> DOM element + its lifecycle in the React tree
+//   2. Wiring audio events back into Redux (timeupdate, ended, etc.)
+//   3. Telling the engine to reload the src after attach
 
 import { useEffect, useRef } from "react";
-import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { useAppDispatch } from "../store/hooks";
 import {
-  clearSeekRequest,
   pause,
   setCurrentTime,
   setDuration,
+  syncAudioSource,
   trackEnded,
-  selectNowPlaying,
 } from "../store/playerSlice";
-import { useAudioEngine } from "../contexts/AudioEngineContext";
+import { audioEngine } from "../audio/engine";
 
 export default function PlayerAudio() {
   const dispatch = useAppDispatch();
-  const { audioRef, setAnalyser } = useAudioEngine();
+  const ref = useRef<HTMLAudioElement | null>(null);
 
-  const nowPlaying = useAppSelector(selectNowPlaying);
-  const isPlaying = useAppSelector((s) => s.player.isPlaying);
-  const volume = useAppSelector((s) => s.player.volume);
-  const muted = useAppSelector((s) => s.player.muted);
-  const seekRequest = useAppSelector((s) => s.player.seekRequest);
-
-  const localRef = useRef<HTMLAudioElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-
-  // Lazily build the Web Audio graph on first play (requires user gesture).
-  const ensureAudioGraph = () => {
-    const audio = localRef.current;
-    if (!audio) return;
-    if (audioCtxRef.current) {
-      if (audioCtxRef.current.state === "suspended") {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      return;
-    }
-    try {
-      const AudioCtor =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtor();
-      const source = ctx.createMediaElementSource(audio);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
-      source.connect(analyser);
-      analyser.connect(ctx.destination);
-      audioCtxRef.current = ctx;
-      sourceRef.current = source;
-      analyserRef.current = analyser;
-      setAnalyser(analyser);
-    } catch (err) {
-      console.warn("Web Audio graph init failed", err);
-    }
-  };
-
-  // Sync source URL when the track changes.
   useEffect(() => {
-    const audio = localRef.current;
+    const audio = ref.current;
     if (!audio) return;
-    if (!nowPlaying?.audioUrl) {
-      audio.removeAttribute("src");
-      audio.load();
-      return;
-    }
-    if (audio.src !== nowPlaying.audioUrl) {
-      audio.src = nowPlaying.audioUrl;
-      audio.load();
-    }
-  }, [nowPlaying?.audioUrl]);
 
-  // Play / pause.
-  useEffect(() => {
-    const audio = localRef.current;
-    if (!audio) return;
-    if (isPlaying && nowPlaying?.audioUrl) {
-      ensureAudioGraph();
-      const promise = audio.play();
-      if (promise && typeof promise.catch === "function") {
-        promise.catch((err) => {
-          console.warn("Audio play() rejected", err);
-          dispatch(pause());
-        });
-      }
-    } else {
-      audio.pause();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, nowPlaying?.audioUrl]);
-
-  // Volume + mute.
-  useEffect(() => {
-    const audio = localRef.current;
-    if (!audio) return;
-    audio.volume = volume;
-    audio.muted = muted;
-  }, [volume, muted]);
-
-  // Handle imperative seek requests from the slider.
-  useEffect(() => {
-    const audio = localRef.current;
-    if (!audio) return;
-    if (seekRequest === null) return;
-    if (Number.isFinite(seekRequest)) {
-      audio.currentTime = seekRequest;
-    }
-    dispatch(clearSeekRequest());
-  }, [seekRequest, dispatch]);
-
-  // Wire up audio element events.
-  useEffect(() => {
-    const audio = localRef.current;
-    if (!audio) return;
+    audioEngine.attachElement(audio);
+    // If a song was already selected before this component mounted, ask the
+    // engine to load it.
+    dispatch(syncAudioSource());
 
     const onTime = () => dispatch(setCurrentTime(audio.currentTime));
     const onLoaded = () => dispatch(setDuration(audio.duration || 0));
@@ -135,18 +51,9 @@ export default function PlayerAudio() {
       audio.removeEventListener("durationchange", onLoaded);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audioEngine.attachElement(null);
     };
   }, [dispatch]);
 
-  return (
-    <audio
-      ref={(el) => {
-        localRef.current = el;
-        audioRef.current = el;
-      }}
-      preload="metadata"
-      crossOrigin="anonymous"
-      style={{ display: "none" }}
-    />
-  );
+  return <audio ref={ref} preload="metadata" style={{ display: "none" }} />;
 }

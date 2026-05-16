@@ -19,7 +19,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   next,
   previous,
-  requestSeek,
+  seekTo,
   setVolume,
   toggleMute,
   togglePlay,
@@ -237,7 +237,10 @@ export default function AppPlayer() {
             <Shuffle size={16} />
           </IconBtn>
           <IconBtn
-            onClick={() => dispatch(previous())}
+            onClick={() => {
+              if (currentTime > 3) dispatch(seekTo(0));
+              else if (canPrev) dispatch(previous());
+            }}
             disabled={!canPrev && currentTime <= 3}
             title="Previous"
           >
@@ -300,7 +303,7 @@ export default function AppPlayer() {
             step={0.1}
             value={Math.min(currentTime, effectiveDuration || currentTime)}
             disabled={effectiveDuration === 0}
-            onChange={(e) => dispatch(requestSeek(Number(e.target.value)))}
+            onChange={(e) => dispatch(seekTo(Number(e.target.value)))}
           />
           <span style={{ minWidth: "32px", textAlign: "right" }}>
             {formatTime(effectiveDuration)}

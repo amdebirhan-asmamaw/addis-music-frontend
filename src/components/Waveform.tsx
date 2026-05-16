@@ -1,7 +1,11 @@
 // components/Waveform.tsx — Real-time frequency-bar visualizer
+//
+// Reads audioEngine.analyserRef.current on every frame. The ref is mutated
+// imperatively when the audio graph is first built, so the loop transparently
+// picks up the analyser without React state or a re-render.
 
 import { useEffect, useRef } from "react";
-import { useAudioEngine } from "../contexts/AudioEngineContext";
+import { audioEngine } from "../audio/engine";
 import { useAppSelector } from "../store/hooks";
 
 interface WaveformProps {
@@ -15,7 +19,6 @@ export default function Waveform({
   height = 36,
   barCount = 40,
 }: WaveformProps) {
-  const { analyser } = useAudioEngine();
   const isPlaying = useAppSelector((s) => s.player.isPlaying);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -33,10 +36,13 @@ export default function Waveform({
     canvas.style.height = `${height}px`;
     ctx.scale(dpr, dpr);
 
+    const gap = 3;
+    const barWidth = (width - gap * (barCount - 1)) / barCount;
+    let dataArray: Uint8Array<ArrayBuffer> | null = null;
+    let step = 1;
+
     const drawIdle = () => {
       ctx.clearRect(0, 0, width, height);
-      const gap = 3;
-      const barWidth = (width - gap * (barCount - 1)) / barCount;
       ctx.fillStyle = "rgba(0, 85, 255, 0.15)";
       for (let i = 0; i < barCount; i++) {
         const x = i * (barWidth + gap);
@@ -46,21 +52,20 @@ export default function Waveform({
       }
     };
 
-    if (!analyser || !isPlaying) {
-      drawIdle();
-      return;
-    }
-
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    const step = Math.max(1, Math.floor(bufferLength / barCount));
-
     const draw = () => {
+      const analyser = audioEngine.analyserRef.current;
+      if (!analyser || !isPlaying) {
+        drawIdle();
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      if (!dataArray || dataArray.length !== analyser.frequencyBinCount) {
+        dataArray = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
+        step = Math.max(1, Math.floor(analyser.frequencyBinCount / barCount));
+      }
       analyser.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, width, height);
-
-      const gap = 3;
-      const barWidth = (width - gap * (barCount - 1)) / barCount;
 
       for (let i = 0; i < barCount; i++) {
         let sum = 0;
@@ -87,7 +92,7 @@ export default function Waveform({
         rafRef.current = null;
       }
     };
-  }, [analyser, isPlaying, width, height, barCount]);
+  }, [isPlaying, width, height, barCount]);
 
   return <canvas ref={canvasRef} style={{ display: "block" }} />;
 }
