@@ -146,7 +146,7 @@ export default function SongCard({
     <Card>
       <CardImageWrapper>
         <CardImage
-          src={song.image || "https://via.placeholder.com/600x600?text=No+Cover"}
+          src={song.image?.url || "https://via.placeholder.com/600x600?text=No+Cover"}
           alt={song.title}
           className="card-img"
         />

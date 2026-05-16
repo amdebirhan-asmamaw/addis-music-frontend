@@ -3,9 +3,14 @@
 import styled from "@emotion/styled";
 import css from "@styled-system/css";
 import { Music, Disc } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
-import { INITIAL_SONGS } from "../constants/songs";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  fetchSongs,
+  selectSongs,
+  selectSongsStatus,
+} from "../store/songsSlice";
 import { colors, fontSizes, fontWeights } from "../constants/theme";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -159,19 +164,26 @@ const GenreTag = styled.span(
 // ─── Component ──────────────────────────────────────────────────────
 
 export default function ArtistsPage() {
+  const dispatch = useAppDispatch();
+  const songs = useAppSelector(selectSongs);
+  const status = useAppSelector(selectSongsStatus);
+
+  useEffect(() => {
+    if (status === "idle") dispatch(fetchSongs());
+  }, [dispatch, status]);
+
   const artists = useMemo<Artist[]>(() => {
     const artistMap = new Map<string, Artist>();
 
-    for (const song of INITIAL_SONGS) {
+    for (const song of songs) {
       const existing = artistMap.get(song.artist);
       if (existing) {
         existing.songCount++;
         if (!existing.genres.includes(song.genre)) {
           existing.genres.push(song.genre);
         }
-        // Update album count
         const albums = new Set(
-          INITIAL_SONGS
+          songs
             .filter((s) => s.artist === song.artist && s.album)
             .map((s) => s.album),
         );
@@ -182,13 +194,13 @@ export default function ArtistsPage() {
           songCount: 1,
           albumCount: song.album ? 1 : 0,
           genres: [song.genre],
-          image: song.image,
+          image: song.image?.url ?? "",
         });
       }
     }
 
     return Array.from(artistMap.values());
-  }, []);
+  }, [songs]);
 
   return (
     <div>

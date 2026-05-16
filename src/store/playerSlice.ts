@@ -41,7 +41,7 @@ const playerSlice = createSlice({
         }
       }
     },
-    playSongById(state, action: PayloadAction<number>) {
+    playSongById(state, action: PayloadAction<string>) {
       const idx = state.queue.findIndex((s) => s.id === action.payload);
       if (idx === -1) return;
       if (state.currentIndex === idx) {

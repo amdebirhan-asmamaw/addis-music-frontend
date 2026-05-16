@@ -1,12 +1,24 @@
-import { AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { ModalOverlay, ModalContent, Button } from "./ui/Shared";
+import type { Song } from "../types/song";
+
+interface DeleteConfirmModalProps {
+  songToDelete: Song;
+  setIsDeleteModalOpen: (open: boolean) => void;
+  setSongToDelete: (song: Song | null) => void;
+  handleDelete: () => void;
+  deleting?: boolean;
+  deleteError?: string | null;
+}
 
 export default function DeleteConfirmModal({
   songToDelete,
   setIsDeleteModalOpen,
   setSongToDelete,
   handleDelete,
-}: any) {
+  deleting = false,
+  deleteError = null,
+}: DeleteConfirmModalProps) {
   return (
     <ModalOverlay>
       <ModalContent maxWidth="400px">
@@ -50,6 +62,22 @@ export default function DeleteConfirmModal({
             </span>
             ?
           </p>
+          {deleteError && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: "8px",
+                backgroundColor: "#fef2f2",
+                color: "#b91c1c",
+                fontSize: "12px",
+                border: "1px solid #fecaca",
+                marginBottom: "16px",
+                textAlign: "left",
+              }}
+            >
+              {deleteError}
+            </div>
+          )}
           <div style={{ display: "flex", gap: "12px" }}>
             <Button
               variant="secondary"
@@ -57,6 +85,7 @@ export default function DeleteConfirmModal({
                 setIsDeleteModalOpen(false);
                 setSongToDelete(null);
               }}
+              disabled={deleting}
               style={{ flex: 1 }}
             >
               Cancel
@@ -64,9 +93,18 @@ export default function DeleteConfirmModal({
             <Button
               variant="danger"
               onClick={handleDelete}
+              disabled={deleting}
               style={{ flex: 1 }}
             >
-              <Trash2 size={16} /> Delete
+              {deleting ? (
+                <>
+                  <Loader2 size={16} className="spin" /> Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 size={16} /> Delete
+                </>
+              )}
             </Button>
           </div>
         </div>

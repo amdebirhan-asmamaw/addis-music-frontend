@@ -1,8 +1,8 @@
 // pages/SongsPage.tsx — Song management page
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useOutletContext } from "react-router";
-import { Search, Plus, Filter, ArrowUpDown } from "lucide-react";
+import { Search, Plus, Filter, ArrowUpDown, Loader2 } from "lucide-react";
 import styled from "@emotion/styled";
 import css from "@styled-system/css";
 
@@ -11,10 +11,9 @@ import SongFormModal from "../components/SongFormModal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import { AddCard } from "../components/ui/Shared";
 
-import { useSongs } from "../hooks/useSongs";
+import { useSongs, type SaveSongIntent } from "../hooks/useSongs";
 import { useSongFilters } from "../hooks/useSongFilters";
 
-import { INITIAL_SONGS } from "../constants/songs";
 import { GENRES } from "../constants/genres";
 import { getStatusColor, getStatusDotColor } from "../constants/status";
 import { colors, fontSizes, fontWeights } from "../constants/theme";
@@ -27,6 +26,20 @@ import {
   selectNowPlaying,
   setQueue,
 } from "../store/playerSlice";
+import {
+  clearActionError,
+  createSong,
+  deleteSong,
+  fetchSongs,
+  selectSongs,
+  selectSongsActionError,
+  selectSongsCreating,
+  selectSongsDeleting,
+  selectSongsLoadError,
+  selectSongsStatus,
+  selectSongsUpdating,
+  updateSong,
+} from "../store/songsSlice";
 import type { AppOutletContext } from "../App";
 
 // ─── Styled Components ──────────────────────────────────────────────
@@ -64,11 +77,7 @@ const PageSubtitle = styled.p(
 );
 
 const TitleBlock = styled.div(
-  css({
-    flex: 1,
-    minWidth: "300px",
-    pr: "16px",
-  }),
+  css({ flex: 1, minWidth: "300px", pr: "16px" }),
 );
 
 const FilterWrapper = styled.div(
@@ -113,12 +122,7 @@ const Select = styled.select(
 );
 
 const FilterControls = styled.div(
-  css({
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    flexShrink: 0,
-  }),
+  css({ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }),
 );
 
 const Grid = styled.div(
@@ -192,6 +196,34 @@ const ClearFiltersButton = styled.button(
   }),
 );
 
+const LoadingState = styled.div(
+  css({
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "80px 0",
+    gap: "12px",
+    color: colors.slate500,
+  }),
+);
+
+const ErrorBanner = styled.div(
+  css({
+    backgroundColor: "#fef2f2",
+    color: "#b91c1c",
+    border: "1px solid #fecaca",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    fontSize: fontSizes.base,
+    marginBottom: "16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+  }),
+);
+
 const AddTrackIcon = styled.div(
   css({
     width: "56px",
@@ -230,44 +262,136 @@ const AddTrackText = styled.p(
 export default function SongsPage() {
   const { searchQuery } = useOutletContext<AppOutletContext>();
   const dispatch = useAppDispatch();
+
+  // ─── Server state ───────────────────────────────────────────────
+  const songs = useAppSelector(selectSongs);
+  const status = useAppSelector(selectSongsStatus);
+  const loadError = useAppSelector(selectSongsLoadError);
+  const creating = useAppSelector(selectSongsCreating);
+  const updating = useAppSelector(selectSongsUpdating);
+  const deleting = useAppSelector(selectSongsDeleting);
+  const actionError = useAppSelector(selectSongsActionError);
+
+  // ─── Player ─────────────────────────────────────────────────────
   const nowPlaying = useAppSelector(selectNowPlaying);
   const isPlaying = useAppSelector((s) => s.player.isPlaying);
 
-  const handleSongDeleted = useCallback(
-    (deletedId: number) => {
-      if (nowPlaying?.id === deletedId) {
-        dispatch(clearPlayback());
+  // ─── Fetch on mount ─────────────────────────────────────────────
+  useEffect(() => {
+    if (status === "idle") dispatch(fetchSongs());
+  }, [dispatch, status]);
+
+  // ─── Form / delete UI state ─────────────────────────────────────
+  // We pre-bind the save/delete handlers to dispatch; the hook owns
+  // modal + form local state only.
+  const editingIdRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
+
+  const handleSave = useCallback(
+    (intent: SaveSongIntent, editingSong: Song | null) => {
+      submittingRef.current = true;
+      editingIdRef.current = editingSong?.id ?? null;
+      if (editingSong) {
+        dispatch(
+          updateSong({
+            id: editingSong.id,
+            text: intent.text,
+            imageFile: intent.imageFile,
+            audioFile: intent.audioFile,
+          }),
+        );
+      } else {
+        dispatch(
+          createSong({
+            text: {
+              title: intent.text.title,
+              artist: intent.text.artist,
+              album: intent.text.album,
+              genre: intent.text.genre,
+              duration: intent.text.duration,
+              status: intent.text.status,
+              releaseYear: intent.text.releaseYear,
+              description: intent.text.description,
+            },
+            imageFile: intent.imageFile,
+            audioFile: intent.audioFile,
+          }),
+        );
       }
     },
-    [dispatch, nowPlaying?.id],
+    [dispatch],
   );
 
-  const crud = useSongs(INITIAL_SONGS, handleSongDeleted);
-  const filters = useSongFilters(crud.songs, searchQuery);
+  const handleConfirmDelete = useCallback(
+    (song: Song) => {
+      submittingRef.current = true;
+      dispatch(deleteSong(song.id));
+    },
+    [dispatch],
+  );
+
+  const crud = useSongs({
+    onSave: handleSave,
+    onDelete: handleConfirmDelete,
+  });
+
+  // Close modals when a mutation completes successfully.
+  const wasCreating = useRef(false);
+  const wasUpdating = useRef(false);
+  const wasDeleting = useRef(false);
+  useEffect(() => {
+    if (wasCreating.current && !creating && !actionError) {
+      crud.setIsFormModalOpen(false);
+    }
+    wasCreating.current = creating;
+  }, [creating, actionError, crud]);
+  useEffect(() => {
+    if (wasUpdating.current && !updating && !actionError) {
+      crud.setIsFormModalOpen(false);
+    }
+    wasUpdating.current = updating;
+  }, [updating, actionError, crud]);
+  useEffect(() => {
+    if (wasDeleting.current && !deleting && !actionError) {
+      crud.setIsDeleteModalOpen(false);
+      crud.setSongToDelete(null);
+    }
+    wasDeleting.current = deleting;
+  }, [deleting, actionError, crud]);
+
+  // ─── Filtering ─────────────────────────────────────────────────
+  const filters = useSongFilters(songs, searchQuery);
 
   // Keep the player queue in sync with the visible filtered list.
   useEffect(() => {
     dispatch(setQueue(filters.filteredSongs));
   }, [dispatch, filters.filteredSongs]);
 
-  // Listen for new songs created from the header form.
+  // If the now-playing song got removed, clear playback.
   useEffect(() => {
-    const handler = (e: Event) => {
-      const song = (e as CustomEvent<Song>).detail;
-      crud.addSong(song);
-    };
-    window.addEventListener("song-created", handler);
-    return () => window.removeEventListener("song-created", handler);
-  }, [crud.addSong]);
+    if (nowPlaying && !songs.some((s) => s.id === nowPlaying.id)) {
+      dispatch(clearPlayback());
+    }
+  }, [dispatch, songs, nowPlaying]);
 
   const handlePlay = useCallback(
     (song: Song) => {
-      if (!song.audioUrl) return;
+      if (!song.audioUrl?.url) return;
       dispatch(playSongById(song.id));
     },
     [dispatch],
   );
 
+  // Clear stale action errors when the user closes the form modal manually.
+  useEffect(() => {
+    if (!crud.isFormModalOpen && actionError) {
+      dispatch(clearActionError());
+    }
+  }, [crud.isFormModalOpen, actionError, dispatch]);
+
+  const submitting = creating || updating;
+
+  // ─── Render ────────────────────────────────────────────────────
   return (
     <>
       <PageHeader>
@@ -315,20 +439,38 @@ export default function SongsPage() {
         </FilterControls>
       </PageHeader>
 
-      {filters.filteredSongs.length === 0 && (
-        <EmptyState>
-          <EmptyStateIcon>
-            <Search size={32} />
-          </EmptyStateIcon>
-          <EmptyStateTitle>No songs found</EmptyStateTitle>
-          <EmptyStateText>
-            Try adjusting your filters or search query.
-          </EmptyStateText>
-          <ClearFiltersButton onClick={filters.clearFilters}>
-            Clear all filters
+      {loadError && (
+        <ErrorBanner>
+          <span>{loadError}</span>
+          <ClearFiltersButton onClick={() => dispatch(fetchSongs())}>
+            Retry
           </ClearFiltersButton>
-        </EmptyState>
+        </ErrorBanner>
       )}
+
+      {status === "loading" && songs.length === 0 && (
+        <LoadingState>
+          <Loader2 size={28} className="spin" />
+          <span>Loading songs…</span>
+        </LoadingState>
+      )}
+
+      {status !== "loading" &&
+        songs.length > 0 &&
+        filters.filteredSongs.length === 0 && (
+          <EmptyState>
+            <EmptyStateIcon>
+              <Search size={32} />
+            </EmptyStateIcon>
+            <EmptyStateTitle>No songs found</EmptyStateTitle>
+            <EmptyStateText>
+              Try adjusting your filters or search query.
+            </EmptyStateText>
+            <ClearFiltersButton onClick={filters.clearFilters}>
+              Clear all filters
+            </ClearFiltersButton>
+          </EmptyState>
+        )}
 
       <Grid>
         {filters.filteredSongs.map((song: Song) => (
@@ -344,7 +486,7 @@ export default function SongsPage() {
             getStatusDotColor={getStatusDotColor}
           />
         ))}
-        {!filters.isFiltered && (
+        {status !== "loading" && !filters.isFiltered && (
           <AddCard onClick={() => crud.handleOpenForm()}>
             <AddTrackIcon className="add-icon">
               <Plus size={24} />
@@ -366,6 +508,8 @@ export default function SongsPage() {
           formErrors={crud.formErrors}
           handleSaveSong={crud.handleSaveSong}
           GENRES={GENRES}
+          submitting={submitting}
+          submitError={actionError}
         />
       )}
 
@@ -375,6 +519,8 @@ export default function SongsPage() {
           setIsDeleteModalOpen={crud.setIsDeleteModalOpen}
           setSongToDelete={crud.setSongToDelete}
           handleDelete={crud.handleDelete}
+          deleting={deleting}
+          deleteError={actionError}
         />
       )}
     </>

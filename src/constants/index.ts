@@ -1,6 +1,5 @@
 // constants/index.ts — Barrel exports
 
-export { INITIAL_SONGS } from "./songs";
 export { GENRES, SELECTABLE_GENRES } from "./genres";
 export type { Genre } from "./genres";
 export { DEFAULT_FORM_STATE, songFormSchema } from "./forms";

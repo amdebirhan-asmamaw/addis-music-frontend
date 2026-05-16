@@ -3,9 +3,14 @@
 import styled from "@emotion/styled";
 import css from "@styled-system/css";
 import { Disc } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
-import { INITIAL_SONGS } from "../constants/songs";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  fetchSongs,
+  selectSongs,
+  selectSongsStatus,
+} from "../store/songsSlice";
 import { colors, fontSizes, fontWeights } from "../constants/theme";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -160,10 +165,18 @@ const SongCount = styled.span(
 // ─── Component ──────────────────────────────────────────────────────
 
 export default function AlbumsPage() {
+  const dispatch = useAppDispatch();
+  const songs = useAppSelector(selectSongs);
+  const status = useAppSelector(selectSongsStatus);
+
+  useEffect(() => {
+    if (status === "idle") dispatch(fetchSongs());
+  }, [dispatch, status]);
+
   const albums = useMemo<Album[]>(() => {
     const albumMap = new Map<string, Album>();
 
-    for (const song of INITIAL_SONGS) {
+    for (const song of songs) {
       if (!song.album) continue;
       const existing = albumMap.get(song.album);
       if (existing) {
@@ -173,14 +186,14 @@ export default function AlbumsPage() {
           name: song.album,
           artist: song.artist,
           songCount: 1,
-          image: song.image,
+          image: song.image?.url ?? "",
           genre: song.genre,
         });
       }
     }
 
     return Array.from(albumMap.values());
-  }, []);
+  }, [songs]);
 
   return (
     <div>

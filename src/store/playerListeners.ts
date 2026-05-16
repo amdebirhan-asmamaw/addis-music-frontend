@@ -36,11 +36,11 @@ startListening({
   predicate: (_action, current, previous) => {
     const cur = selectNowPlaying(current);
     const prev = selectNowPlaying(previous);
-    return cur?.id !== prev?.id || cur?.audioUrl !== prev?.audioUrl;
+    return cur?.id !== prev?.id || cur?.audioUrl?.url !== prev?.audioUrl?.url;
   },
   effect: (_action, api) => {
     const song = selectNowPlaying(api.getState());
-    if (song?.audioUrl) audioEngine.setSrc(song.audioUrl);
+    if (song?.audioUrl?.url) audioEngine.setSrc(song.audioUrl.url);
     else audioEngine.clearSrc();
   },
 });
@@ -61,7 +61,7 @@ startListening({
   effect: (_action, api) => {
     const state = api.getState();
     const song = selectNowPlaying(state);
-    if (state.player.isPlaying && song?.audioUrl) {
+    if (state.player.isPlaying && song?.audioUrl?.url) {
       // Build the Web Audio graph + resume the context inside the gesture.
       audioEngine.ensureGraph();
       audioEngine.resume();
@@ -101,6 +101,6 @@ startListening({
   actionCreator: syncAudioSource,
   effect: (_action, api) => {
     const song = selectNowPlaying(api.getState());
-    if (song?.audioUrl) audioEngine.setSrc(song.audioUrl);
+    if (song?.audioUrl?.url) audioEngine.setSrc(song.audioUrl.url);
   },
 });

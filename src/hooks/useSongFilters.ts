@@ -57,8 +57,14 @@ export function useSongFilters(
           return a.title.localeCompare(b.title);
         case "artist":
           return a.artist.localeCompare(b.artist);
-        default:
-          return b.id - a.id;
+        default: {
+          // Newest first by createdAt; fall back to id ordering for items
+          // that don't have a timestamp (defensive — backend always sets one).
+          const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+          const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+          if (aTime !== bTime) return bTime - aTime;
+          return b.id.localeCompare(a.id);
+        }
       }
     });
 

@@ -55,5 +55,12 @@ export default function PlayerAudio() {
     };
   }, [dispatch]);
 
-  return <audio ref={ref} preload="metadata" style={{ display: "none" }} />;
+  return (
+    <audio
+      ref={ref}
+      preload="metadata"
+      crossOrigin="anonymous"
+      style={{ display: "none" }}
+    />
+  );
 }

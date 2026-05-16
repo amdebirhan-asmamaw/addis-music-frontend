@@ -1,6 +1,6 @@
 // components/Header.tsx — App header with router navigation + song form
 
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import css from "@styled-system/css";
 import { NavLink, useLocation } from "react-router";
@@ -9,7 +9,15 @@ import { Music, BarChart2, Disc, Users, Search, Plus } from "lucide-react";
 import SongFormModal from "./SongFormModal";
 import { GENRES } from "../constants/genres";
 import { DEFAULT_FORM_STATE, songFormSchema } from "../constants/forms";
-import type { Song, SongFormData, SongFormErrors } from "../types/song";
+import type { SongFormData, SongFormErrors } from "../types/song";
+
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  clearActionError,
+  createSong,
+  selectSongsActionError,
+  selectSongsCreating,
+} from "../store/songsSlice";
 
 // ─── Styled Components ──────────────────────────────────────────────
 
@@ -164,8 +172,11 @@ export default function AppHeader({
   setSearchQuery,
 }: AppHeaderProps) {
   const location = useLocation();
+  const dispatch = useAppDispatch();
+  const creating = useAppSelector(selectSongsCreating);
+  const actionError = useAppSelector(selectSongsActionError);
 
-  // Form modal state — owned by the header
+  // Form modal state — owned by the header for the global "Add" button.
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [formData, setFormData] = useState<SongFormData>(DEFAULT_FORM_STATE);
   const [formErrors, setFormErrors] = useState<SongFormErrors>({});
@@ -177,36 +188,56 @@ export default function AppHeader({
   }, []);
 
   const handleSaveSong = useCallback(() => {
-    const result = songFormSchema.safeParse(formData);
+    const result = songFormSchema.safeParse({
+      title: formData.title,
+      artist: formData.artist,
+      album: formData.album,
+      genre: formData.genre,
+      duration: formData.duration,
+      status: formData.status,
+      releaseYear: formData.releaseYear,
+      description: formData.description,
+    });
 
+    const fieldErrors: SongFormErrors = {};
     if (!result.success) {
-      const fieldErrors: SongFormErrors = {};
       for (const issue of result.error.issues) {
         const field = issue.path[0] as keyof SongFormErrors;
-        if (field in DEFAULT_FORM_STATE) {
-          fieldErrors[field] = issue.message;
-        }
+        fieldErrors[field] = issue.message;
       }
+    }
+    if (!formData.imageFile) fieldErrors.imageFile = "Cover artwork is required";
+    if (!formData.audioFile) fieldErrors.audioFile = "Audio file is required";
+
+    if (Object.keys(fieldErrors).length > 0 || !result.success) {
       setFormErrors(fieldErrors);
       return;
     }
 
-    const newSong: Song = {
-      ...result.data,
-      id: Date.now(),
-      status: "LIVE",
-      image:
-        result.data.image ||
-        `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000)}?w=600&h=600&fit=crop&q=80`,
-    };
-
-    // Notify listening pages about the new song
-    window.dispatchEvent(
-      new CustomEvent<Song>("song-created", { detail: newSong }),
+    dispatch(
+      createSong({
+        text: result.data,
+        imageFile: formData.imageFile,
+        audioFile: formData.audioFile,
+      }),
     );
+  }, [dispatch, formData]);
 
-    setIsFormModalOpen(false);
-  }, [formData]);
+  // Close modal on successful create.
+  const wasCreating = useRef(false);
+  useEffect(() => {
+    if (wasCreating.current && !creating && !actionError && isFormModalOpen) {
+      setIsFormModalOpen(false);
+    }
+    wasCreating.current = creating;
+  }, [creating, actionError, isFormModalOpen]);
+
+  // Clear stale errors when the modal is closed by the user.
+  useEffect(() => {
+    if (!isFormModalOpen && actionError) {
+      dispatch(clearActionError());
+    }
+  }, [isFormModalOpen, actionError, dispatch]);
 
   return (
     <>
@@ -268,6 +299,8 @@ export default function AppHeader({
           formErrors={formErrors}
           handleSaveSong={handleSaveSong}
           GENRES={GENRES}
+          submitting={creating}
+          submitError={actionError}
         />
       )}
     </>

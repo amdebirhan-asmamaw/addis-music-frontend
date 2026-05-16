@@ -45,6 +45,13 @@ const globalStyles = globalCss`
     margin: 0;
     overflow-x: hidden;
   }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .spin {
+    animation: spin 0.9s linear infinite;
+  }
 `;
 
 // ─── App Layout ─────────────────────────────────────────────────────

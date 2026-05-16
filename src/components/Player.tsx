@@ -178,11 +178,13 @@ export default function AppPlayer() {
             position: "relative",
           }}
         >
-          <img
-            src={nowPlaying.image}
-            alt={nowPlaying.title}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+          {nowPlaying.image?.url && (
+            <img
+              src={nowPlaying.image.url}
+              alt={nowPlaying.title}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )}
         </div>
         <div style={{ overflow: "hidden" }}>
           <h4

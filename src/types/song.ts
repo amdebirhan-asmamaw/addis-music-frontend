@@ -2,20 +2,28 @@
 
 export type SongStatus = "LIVE" | "PROCESSING" | "DRAFT";
 
+export interface CloudinaryAsset {
+  url: string;
+  id: string;
+}
+
 export interface Song {
-  id: number;
+  id: string;
   title: string;
   artist: string;
   album: string;
   genre: string;
   duration: string;
   status: SongStatus;
-  image: string;
+  image: CloudinaryAsset | null;
   releaseYear: number;
   description: string;
-  audioUrl: string;
+  audioUrl: CloudinaryAsset | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
+// Form-side shape — text fields + optional File objects for new uploads.
 export interface SongFormData {
   title: string;
   artist: string;
@@ -24,15 +32,24 @@ export interface SongFormData {
   duration: string;
   releaseYear: number;
   description: string;
-  image: string;
-  audioUrl: string;
+  status: SongStatus;
+  imageFile: File | null;
+  audioFile: File | null;
+  // Preview URLs (object URLs for new files or existing Cloudinary URLs).
+  imagePreview: string;
+  audioPreview: string;
 }
 
 export interface SongFormErrors {
   title?: string;
   artist?: string;
+  album?: string;
   genre?: string;
-  audioUrl?: string;
+  duration?: string;
+  releaseYear?: string;
+  status?: string;
+  imageFile?: string;
+  audioFile?: string;
 }
 
 export interface SongStats {
