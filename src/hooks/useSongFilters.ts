@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useDebounce } from "./useDebounce";
 import type { Song } from "../types/song";
 
-type SortOption = "newest" | "alphabetical" | "artist";
+export type SortOption = "newest" | "alphabetical" | "artist";
 
 interface SongFiltersState {
   searchQuery: string;
@@ -18,12 +18,21 @@ interface SongFiltersState {
   clearFilters: () => void;
 }
 
-export function useSongFilters(songs: Song[]): SongFiltersState {
+/**
+ * @param songs - Source song list
+ * @param externalSearchQuery - Optional search query controlled externally (e.g. from header).
+ *   When provided, the hook's own searchQuery state is ignored.
+ */
+export function useSongFilters(
+  songs: Song[],
+  externalSearchQuery?: string,
+): SongFiltersState {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  const debouncedQuery = useDebounce(searchQuery, 300);
+  const activeQuery = externalSearchQuery ?? searchQuery;
+  const debouncedQuery = useDebounce(activeQuery, 300);
 
   const filteredSongs = useMemo(() => {
     let result = [...songs];
@@ -56,7 +65,7 @@ export function useSongFilters(songs: Song[]): SongFiltersState {
     return result;
   }, [songs, debouncedQuery, selectedGenre, sortBy]);
 
-  const isFiltered = searchQuery !== "" || selectedGenre !== "All";
+  const isFiltered = activeQuery !== "" || selectedGenre !== "All";
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -64,7 +73,7 @@ export function useSongFilters(songs: Song[]): SongFiltersState {
   };
 
   return {
-    searchQuery,
+    searchQuery: activeQuery,
     setSearchQuery,
     selectedGenre,
     setSelectedGenre,
