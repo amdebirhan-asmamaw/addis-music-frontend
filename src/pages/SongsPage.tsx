@@ -142,11 +142,14 @@ const Grid = styled.div(
 const EmptyState = styled.div(
   css({
     textAlign: "center",
-    padding: "80px 0",
+    padding: "80px 24px",
     backgroundColor: colors.cardBg,
     borderRadius: "16px",
     border: "1px dashed",
     borderColor: colors.slate200,
+    maxWidth: "500px",
+    margin: "64px auto",
+    width: "100%",
   }),
 );
 
@@ -455,49 +458,70 @@ export default function SongsPage() {
         </LoadingState>
       )}
 
-      {status !== "loading" &&
-        songs.length > 0 &&
-        filters.filteredSongs.length === 0 && (
-          <EmptyState>
-            <EmptyStateIcon>
-              <Search size={32} />
-            </EmptyStateIcon>
-            <EmptyStateTitle>No songs found</EmptyStateTitle>
-            <EmptyStateText>
-              Try adjusting your filters or search query.
-            </EmptyStateText>
+      {status !== "loading" && filters.filteredSongs.length === 0 && (
+        <EmptyState>
+          <EmptyStateIcon>
+            {songs.length === 0 ? <Plus size={32} /> : <Search size={32} />}
+          </EmptyStateIcon>
+          <EmptyStateTitle>
+            {songs.length === 0 ? "No songs added yet" : "No songs found"}
+          </EmptyStateTitle>
+          <EmptyStateText>
+            {songs.length === 0
+              ? "Upload your first track to start managing your catalog."
+              : "Try adjusting your filters or search query."}
+          </EmptyStateText>
+          {songs.length === 0 ? (
+            <button
+              onClick={() => crud.handleOpenForm()}
+              style={{
+                backgroundColor: colors.primary,
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                padding: "10px 24px",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Add New Track
+            </button>
+          ) : (
             <ClearFiltersButton onClick={filters.clearFilters}>
               Clear all filters
             </ClearFiltersButton>
-          </EmptyState>
-        )}
+          )}
+        </EmptyState>
+      )}
 
-      <Grid>
-        {filters.filteredSongs.map((song: Song) => (
-          <SongCard
-            key={song.id}
-            song={song}
-            isPlaying={isPlaying}
-            nowPlaying={nowPlaying}
-            playSong={handlePlay}
-            handleOpenForm={crud.handleOpenForm}
-            confirmDelete={crud.confirmDelete}
-            getStatusColor={getStatusColor}
-            getStatusDotColor={getStatusDotColor}
-          />
-        ))}
-        {status !== "loading" && !filters.isFiltered && (
-          <AddCard onClick={() => crud.handleOpenForm()}>
-            <AddTrackIcon className="add-icon">
-              <Plus size={24} />
-            </AddTrackIcon>
-            <AddTrackTitle>Add New Track</AddTrackTitle>
-            <AddTrackText>
-              Upload your mastered files and populate metadata.
-            </AddTrackText>
-          </AddCard>
-        )}
-      </Grid>
+      {filters.filteredSongs.length > 0 && (
+        <Grid>
+          {filters.filteredSongs.map((song: Song) => (
+            <SongCard
+              key={song.id}
+              song={song}
+              isPlaying={isPlaying}
+              nowPlaying={nowPlaying}
+              playSong={handlePlay}
+              handleOpenForm={crud.handleOpenForm}
+              confirmDelete={crud.confirmDelete}
+              getStatusColor={getStatusColor}
+              getStatusDotColor={getStatusDotColor}
+            />
+          ))}
+          {status !== "loading" && !filters.isFiltered && (
+            <AddCard onClick={() => crud.handleOpenForm()}>
+              <AddTrackIcon className="add-icon">
+                <Plus size={24} />
+              </AddTrackIcon>
+              <AddTrackTitle>Add New Track</AddTrackTitle>
+              <AddTrackText>
+                Upload your mastered files and populate metadata.
+              </AddTrackText>
+            </AddCard>
+          )}
+        </Grid>
+      )}
 
       {crud.isFormModalOpen && (
         <SongFormModal
