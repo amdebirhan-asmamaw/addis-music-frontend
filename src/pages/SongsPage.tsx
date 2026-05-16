@@ -230,12 +230,15 @@ export default function SongsPage() {
   const crud = useSongs(INITIAL_SONGS, player.stopIfDeleted);
   const filters = useSongFilters(crud.songs, searchQuery);
 
-  // Listen for "Add New Song" button click from header
+  // Listen for new songs created from the header form
   useEffect(() => {
-    const handler = () => crud.handleOpenForm();
-    window.addEventListener("open-song-form", handler);
-    return () => window.removeEventListener("open-song-form", handler);
-  }, [crud.handleOpenForm]);
+    const handler = (e: Event) => {
+      const song = (e as CustomEvent<Song>).detail;
+      crud.addSong(song);
+    };
+    window.addEventListener("song-created", handler);
+    return () => window.removeEventListener("song-created", handler);
+  }, [crud.addSong]);
 
   return (
     <>

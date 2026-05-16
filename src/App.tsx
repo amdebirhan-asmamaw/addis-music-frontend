@@ -1,6 +1,6 @@
 // App.tsx — Root layout with routing
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Outlet } from "react-router";
 import { Global, css as globalCss } from "@emotion/react";
 import styled from "@emotion/styled";
@@ -54,11 +54,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const player = useSongPlayer(INITIAL_SONGS[0]);
 
-  const handleOpenForm = useCallback(() => {
-    // Dispatch a custom event that SongsPage listens to
-    window.dispatchEvent(new CustomEvent("open-song-form"));
-  }, []);
-
   return (
     <AppContainer>
       <Global styles={globalStyles} />
@@ -66,7 +61,6 @@ export default function App() {
       <AppHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        handleOpenForm={handleOpenForm}
       />
 
       <Main>

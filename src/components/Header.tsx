@@ -1,9 +1,15 @@
-// components/Header.tsx — App header with router navigation
+// components/Header.tsx — App header with router navigation + song form
 
+import { useState, useCallback } from "react";
 import styled from "@emotion/styled";
 import css from "@styled-system/css";
 import { NavLink, useLocation } from "react-router";
-import { Music, BarChart2, Disc, Users, Search, Plus, Bell } from "lucide-react";
+import { Music, BarChart2, Disc, Users, Search, Plus } from "lucide-react";
+
+import SongFormModal from "./SongFormModal";
+import { GENRES } from "../constants/genres";
+import { DEFAULT_FORM_STATE, songFormSchema } from "../constants/forms";
+import type { Song, SongFormData, SongFormErrors } from "../types/song";
 
 // ─── Styled Components ──────────────────────────────────────────────
 
@@ -135,19 +141,6 @@ const AddButton = styled.button(
   }),
 );
 
-const Avatar = styled.div(
-  css({
-    width: "36px",
-    height: "36px",
-    borderRadius: "full",
-    bg: "#1e293b",
-    border: "2px solid white",
-    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-    overflow: "hidden",
-    cursor: "pointer",
-  }),
-);
-
 // ─── Navigation Config ──────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -162,7 +155,6 @@ const NAV_ITEMS = [
 interface AppHeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  handleOpenForm: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -170,96 +162,114 @@ interface AppHeaderProps {
 export default function AppHeader({
   searchQuery,
   setSearchQuery,
-  handleOpenForm,
 }: AppHeaderProps) {
   const location = useLocation();
 
+  // Form modal state — owned by the header
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [formData, setFormData] = useState<SongFormData>(DEFAULT_FORM_STATE);
+  const [formErrors, setFormErrors] = useState<SongFormErrors>({});
+
+  const handleOpenForm = useCallback(() => {
+    setFormData(DEFAULT_FORM_STATE);
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  }, []);
+
+  const handleSaveSong = useCallback(() => {
+    const result = songFormSchema.safeParse(formData);
+
+    if (!result.success) {
+      const fieldErrors: SongFormErrors = {};
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof SongFormErrors;
+        if (field in DEFAULT_FORM_STATE) {
+          fieldErrors[field] = issue.message;
+        }
+      }
+      setFormErrors(fieldErrors);
+      return;
+    }
+
+    const newSong: Song = {
+      ...result.data,
+      id: Date.now(),
+      status: "LIVE",
+      image:
+        result.data.image ||
+        `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000)}?w=600&h=600&fit=crop&q=80`,
+    };
+
+    // Notify listening pages about the new song
+    window.dispatchEvent(
+      new CustomEvent<Song>("song-created", { detail: newSong }),
+    );
+
+    setIsFormModalOpen(false);
+  }, [formData]);
+
   return (
-    <Header>
-      <HeaderContent>
-        <LogoGroup>
-          <Logo to="/songs">
-            <Music size={24} fill="currentColor" />
-            <span>MusicBox</span>
-          </Logo>
-          <Nav>
-            {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
-              const isActive = location.pathname === path;
-              return (
-                <StyledNavItem
-                  key={path}
-                  to={path}
-                  data-active={String(isActive)}
-                >
-                  <Icon size={16} /> {label}
-                </StyledNavItem>
-              );
-            })}
-          </Nav>
-        </LogoGroup>
-        <HeaderActions>
-          <SearchWrapper>
-            <div
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#94a3b8",
-              }}
-            >
-              <Search size={16} />
-            </div>
-            <SearchInput
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search music library..."
-            />
-          </SearchWrapper>
-          <AddButton onClick={handleOpenForm}>
-            <Plus size={16} /> Add New Song
-          </AddButton>
-          <div
-            style={{
-              width: "1px",
-              height: "24px",
-              backgroundColor: "#e2e8f0",
-              margin: "0 8px",
-            }}
-          />
-          <button
-            style={{
-              color: "#94a3b8",
-              background: "none",
-              border: "none",
-              position: "relative",
-              cursor: "pointer",
-            }}
-          >
-            <Bell size={20} />
-            <span
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                width: "8px",
-                height: "8px",
-                backgroundColor: "#ef4444",
-                borderRadius: "50%",
-                border: "2px solid white",
-              }}
-            />
-          </button>
-          <Avatar>
-            <img
-              src="https://i.pravatar.cc/150?img=11"
-              alt="User"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </Avatar>
-        </HeaderActions>
-      </HeaderContent>
-    </Header>
+    <>
+      <Header>
+        <HeaderContent>
+          <LogoGroup>
+            <Logo to="/songs">
+              <Music size={24} fill="currentColor" />
+              <span>MusicBox</span>
+            </Logo>
+            <Nav>
+              {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
+                const isActive = location.pathname === path;
+                return (
+                  <StyledNavItem
+                    key={path}
+                    to={path}
+                    data-active={String(isActive)}
+                  >
+                    <Icon size={16} /> {label}
+                  </StyledNavItem>
+                );
+              })}
+            </Nav>
+          </LogoGroup>
+          <HeaderActions>
+            <SearchWrapper>
+              <div
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "#94a3b8",
+                }}
+              >
+                <Search size={16} />
+              </div>
+              <SearchInput
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search music library..."
+              />
+            </SearchWrapper>
+            <AddButton onClick={handleOpenForm}>
+              <Plus size={16} /> Add New Song
+            </AddButton>
+          </HeaderActions>
+        </HeaderContent>
+      </Header>
+
+      {isFormModalOpen && (
+        <SongFormModal
+          editingSong={null}
+          setIsFormModalOpen={setIsFormModalOpen}
+          formData={formData}
+          setFormData={setFormData}
+          formErrors={formErrors}
+          handleSaveSong={handleSaveSong}
+          GENRES={GENRES}
+        />
+      )}
+    </>
   );
 }

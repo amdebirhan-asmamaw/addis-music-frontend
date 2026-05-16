@@ -25,6 +25,7 @@ interface SongsCrudState {
   handleDelete: () => void;
   setIsDeleteModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setSongToDelete: React.Dispatch<React.SetStateAction<Song | null>>;
+  addSong: (song: Song) => void;
 }
 
 export function useSongs(
@@ -112,6 +113,10 @@ export function useSongs(
     setSongToDelete(null);
   }, [songToDelete, onSongDeleted]);
 
+  const addSong = useCallback((song: Song) => {
+    setSongs((prev) => [song, ...prev]);
+  }, []);
+
   return {
     songs,
     isFormModalOpen,
@@ -128,5 +133,6 @@ export function useSongs(
     handleDelete,
     setIsDeleteModalOpen,
     setSongToDelete,
+    addSong,
   };
 }
